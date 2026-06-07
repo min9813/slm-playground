@@ -1,7 +1,7 @@
 [project]
-name = "liquid-ai-jp-demo"
+name = "slm-playground"
 version = "0.1.0"
-description = "Local demos for LiquidAI LFM2.5 JP text generation and Japanese TTS (with a web UI)."
+description = "Playground for small / local LLMs — Japanese text chat, voice conversation and TTS (with a web UI). Currently centered on LiquidAI LFM2.5."
 readme = "README.md"
 # liquid-audio requires Python >= 3.12, so the unified project targets 3.12+.
 requires-python = ">=3.12"
@@ -36,7 +36,7 @@ realtime = [
 ]
 # Everything: text + audio + web server + realtime.
 all = [
-    "liquid-ai-jp-demo[audio,server,realtime]",
+    "slm-playground[audio,server,realtime]",
 ]
 
 # Dev-only tooling (installed by `uv sync`, not shipped). PEP 735 group.

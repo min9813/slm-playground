@@ -1,6 +1,10 @@
-# Liquid AI JP Demo
+# SLM Playground
 
-This directory has several local demos built on `LiquidAI/LFM2.5-Audio-1.5B-JP`
+A playground for experimenting with small / local LLMs — Japanese text chat,
+voice conversation, and TTS. Currently centered on Liquid AI's models; other
+lightweight models will be added over time.
+
+The demos here are built on `LiquidAI/LFM2.5-Audio-1.5B-JP`
 (an omni audio model that handles TTS, ASR, and speech-to-speech in one):
 
 - `run_text.py`: `LiquidAI/LFM2.5-1.2B-JP-202606` text generation
