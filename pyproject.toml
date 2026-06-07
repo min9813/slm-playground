@@ -1,0 +1,70 @@
+[project]
+name = "liquid-ai-jp-demo"
+version = "0.1.0"
+description = "Local demos for LiquidAI LFM2.5 JP text generation and Japanese TTS (with a web UI)."
+readme = "README.md"
+# liquid-audio requires Python >= 3.12, so the unified project targets 3.12+.
+requires-python = ">=3.12"
+
+# Core dependencies shared by the text demo (run_text.py).
+dependencies = [
+    "torch==2.12.0",
+    "transformers>=5.10.2",
+    "safetensors>=0.7.0",
+    "accelerate>=1.13.0",
+    "huggingface-hub>=1.18.0",
+    "numpy>=2.4.6",
+]
+
+[project.optional-dependencies]
+# Japanese TTS demo (run_audio_tts.py).
+audio = [
+    "torchaudio==2.11.0",
+    "liquid-audio>=1.3.0",
+    "soundfile>=0.13.1",
+]
+# FastAPI web server (backend/).
+server = [
+    "fastapi>=0.136.3",
+    "uvicorn[standard]>=0.49.0",
+    "pydantic>=2.13.4",
+    "python-multipart>=0.0.20",
+]
+# Realtime speech-to-speech over WebRTC (optional; pulls in fastrtc + gradio).
+realtime = [
+    "fastrtc[vad]>=0.0.34",
+]
+# Everything: text + audio + web server + realtime.
+all = [
+    "liquid-ai-jp-demo[audio,server,realtime]",
+]
+
+# Dev-only tooling (installed by `uv sync`, not shipped). PEP 735 group.
+[dependency-groups]
+dev = [
+    "pre-commit>=4.0",
+]
+
+# Console entry points — run with `uv run <name>`.
+[project.scripts]
+serve = "backend.server:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["backend"]
+
+[tool.uv]
+# Pull torch / torchaudio from the CUDA 12.6 wheel index (tested on the local
+# GTX 1080 Ti). For a CPU-only machine, switch the URL below to
+# https://download.pytorch.org/whl/cpu
+[tool.uv.sources]
+torch = { index = "pytorch-cu126" }
+torchaudio = { index = "pytorch-cu126" }
+
+[[tool.uv.index]]
+name = "pytorch-cu126"
+url = "https://download.pytorch.org/whl/cu126"
+explicit = true

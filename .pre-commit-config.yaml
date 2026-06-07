@@ -1,0 +1,29 @@
+# Local "shift-left" security layer: blocks secrets before they enter git history.
+#
+# Setup (once per clone):
+#   uv run pre-commit install
+# Run against all tracked files on demand:
+#   uv run pre-commit run --all-files
+#
+# This pairs with the server-side scan in .github/workflows/security.yml:
+#   - here (pre-commit) : fast, scans only *staged* changes, but can be bypassed
+#                         with `git commit --no-verify` or a missing install.
+#   - CI (gitleaks git) : authoritative, scans the *full history*, cannot be bypassed.
+
+# Generated / vendored paths the hygiene hooks should ignore.
+exclude: '^(uv\.lock|outputs/|hf-cache/|test-results/)'
+
+repos:
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.30.1
+    hooks:
+      # Runs: gitleaks git --pre-commit --redact --staged  (staged diff only = fast)
+      - id: gitleaks
+
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: detect-private-key        # block PEM / SSH private keys
+      - id: check-added-large-files   # stop model weights / audio from slipping in
+        args: ['--maxkb=1024']
+      - id: check-merge-conflict

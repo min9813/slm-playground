@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Liquid JP Voice Bench</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div>
+        <p class="kicker">Liquid AI · LFM2.5-Audio</p>
+        <h1>JP Voice Bench</h1>
+      </div>
+      <div class="status" id="runtimeStatus">initializing</div>
+    </header>
+
+    <nav class="tabs" role="tablist" aria-label="mode">
+      <button class="tab is-active" type="button" data-mode="tts" role="tab" aria-selected="true">
+        音声合成 · TTS
+      </button>
+      <button class="tab" type="button" data-mode="asr" role="tab" aria-selected="false">
+        音声認識 · ASR
+      </button>
+      <button class="tab" type="button" data-mode="chat" role="tab" aria-selected="false">
+        音声対話 · Chat
+      </button>
+    </nav>
+
+    <!-- ============================ TTS ============================ -->
+    <main class="workspace mode" id="mode-tts">
+      <section class="compose-panel" aria-label="TTS input">
+        <form id="ttsForm">
+          <div class="field-head">
+            <label for="textInput">日本語テキスト</label>
+            <span id="charCount">0 / 2000</span>
+          </div>
+          <textarea
+            id="textInput"
+            maxlength="2000"
+            required
+            spellcheck="false"
+          >こんにちは。Liquid AIの日本語音声モデルをGPUでテストしています。</textarea>
+
+          <div class="control-strip">
+            <label class="token-control" for="tokenRange">
+              <span>max tokens</span>
+              <input id="tokenRange" type="range" min="32" max="512" step="16" value="192" />
+            </label>
+            <input id="tokenNumber" class="token-number" type="number" min="32" max="512" step="16" value="192" />
+            <button id="generateButton" type="submit">
+              <span class="button-mark">▶</span>
+              <span>生成</span>
+            </button>
+          </div>
+        </form>
+      </section>
+
+      <section class="output-panel" aria-label="Generated audio">
+        <div class="plate-head">
+          <span>output</span>
+          <a id="downloadLink" class="download-link" href="#" download aria-disabled="true">download</a>
+        </div>
+        <canvas id="waveform" width="1040" height="260" aria-label="waveform"></canvas>
+        <audio id="audioPlayer" controls></audio>
+        <div class="filename" id="filename">no file</div>
+      </section>
+
+      <section class="metrics-panel" aria-label="Generation metrics">
+        <div class="meter primary">
+          <span>total</span>
+          <strong id="totalTime">0.00s</strong>
+        </div>
+        <div class="meter">
+          <span>generation</span>
+          <strong id="generationTime">0.00s</strong>
+        </div>
+        <div class="meter">
+          <span>decode</span>
+          <strong id="decodeTime">0.00s</strong>
+        </div>
+        <div class="meter">
+          <span>load</span>
+          <strong id="loadTime">0.00s</strong>
+        </div>
+        <div class="meter">
+          <span>audio</span>
+          <strong id="audioDuration">0.00s</strong>
+        </div>
+        <div class="meter">
+          <span>tokens</span>
+          <strong id="audioTokens">0</strong>
+        </div>
+        <div class="meter wide">
+          <span>runtime</span>
+          <strong id="runtimeDetail">cuda / float32</strong>
+        </div>
+        <div class="meter wide">
+          <span>gpu memory</span>
+          <strong id="memoryDetail">--</strong>
+        </div>
+      </section>
+    </main>
+
+    <!-- ============================ ASR ============================ -->
+    <main class="workspace mode" id="mode-asr" hidden>
+      <section class="compose-panel" aria-label="ASR input">
+        <div class="field-head">
+          <label>入力音声</label>
+          <span id="asrSource">no audio</span>
+        </div>
+
+        <div class="recorder">
+          <button id="asrRecord" class="rec-button" type="button">
+            <span class="rec-dot"></span>
+            <span class="rec-label">録音開始</span>
+          </button>
+          <label class="file-pick">
+            <span>ファイルを選択</span>
+            <input id="asrFile" type="file" accept="audio/*" hidden />
+          </label>
+        </div>
+
+        <audio id="asrPreview" class="preview" controls></audio>
+
+        <div class="control-strip asr-controls">
+          <label class="token-control" for="asrTokens">
+            <span>max tokens</span>
+            <input id="asrTokens" type="range" min="64" max="512" step="32" value="256" />
+          </label>
+          <input id="asrTokensNum" class="token-number" type="number" min="64" max="512" step="32" value="256" />
+          <button id="asrRun" type="button" disabled>
+            <span class="button-mark">▶</span>
+            <span>文字起こし</span>
+          </button>
+        </div>
+        <p class="hint">マイク録音、または音声ファイル（WAV/MP3/M4A 等）から日本語を書き起こします。</p>
+      </section>
+
+      <section class="output-panel" aria-label="Transcript">
+        <div class="plate-head">
+          <span>transcript</span>
+          <button id="asrCopy" class="download-link" type="button" aria-disabled="true">copy</button>
+        </div>
+        <div class="transcript" id="asrText" aria-live="polite">音声を入力して「文字起こし」を押してください。</div>
+        <div class="filename" id="asrMeta">no result</div>
+      </section>
+    </main>
+
+    <!-- ============================ CHAT ============================ -->
+    <main class="workspace mode" id="mode-chat" hidden>
+      <section class="compose-panel chat-input-panel" aria-label="Voice chat input">
+        <div class="field-head">
+          <label>音声対話</label>
+          <span id="chatStatus">idle</span>
+        </div>
+
+        <!-- Realtime (WebRTC / fastrtc) -->
+        <div class="rtc-block" id="rtcBlock" hidden>
+          <button id="rtcToggle" class="rec-button big" type="button">
+            <span class="rec-dot"></span>
+            <span class="rec-label">リアルタイム会話を開始</span>
+          </button>
+          <p class="hint">接続後は話すだけ。話し終わり(無音)を自動検知して、モデルが音声で連続応答します(WebRTCストリーミング)。</p>
+          <audio id="rtcAudio" autoplay></audio>
+        </div>
+
+        <div class="mode-divider" id="rtcDivider" hidden><span>または ターン制</span></div>
+
+        <button id="chatRecord" class="rec-button big" type="button">
+          <span class="rec-dot"></span>
+          <span class="rec-label">話しかける</span>
+        </button>
+        <p class="hint">ボタンを押して話すだけ。話し終えて少し黙ると自動で送信され、モデルが音声とテキストで返答します。</p>
+
+        <div class="vad-row">
+          <label class="vad-toggle">
+            <input id="chatAutoStop" type="checkbox" checked />
+            <span>無音で自動送信（VAD）</span>
+          </label>
+          <label class="vad-silence">
+            <span>無音判定</span>
+            <input id="chatSilence" type="number" min="0.4" max="5" step="0.1" value="1.2" />
+            <span>秒</span>
+          </label>
+        </div>
+
+        <div class="control-strip">
+          <label class="token-control" for="chatTokens">
+            <span>max tokens</span>
+            <input id="chatTokens" type="range" min="128" max="768" step="32" value="512" />
+          </label>
+          <input id="chatTokensNum" class="token-number" type="number" min="128" max="768" step="32" value="512" />
+          <button id="chatClear" type="button">クリア</button>
+        </div>
+        <p class="hint subtle">※ 各発話は独立して処理されます（会話履歴は保持しません）。</p>
+      </section>
+
+      <section class="output-panel" aria-label="Conversation">
+        <div class="plate-head">
+          <span>conversation</span>
+          <span id="chatMeta"></span>
+        </div>
+        <div class="chat-log" id="chatLog">
+          <div class="chat-empty">まだ会話はありません。「話しかける」で開始します。</div>
+        </div>
+      </section>
+    </main>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    <script src="/app.js" type="module"></script>
+  </body>
+</html>

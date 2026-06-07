@@ -1,0 +1,107 @@
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg
+*.egg-info/
+.eggs/
+build/
+dist/
+wheels/
+.ipynb_checkpoints/
+
+# ---- Python: test / type / lint caches ----
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.pytype/
+.tox/
+.nox/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+
+# ---- uv / virtual environments ----
+.venv/
+.venv-*/
+venv/
+env/
+# Keep uv.lock committed for reproducible installs (do NOT ignore it).
+
+# ---- Environment / secrets ----
+.env
+.env.*
+*.pem
+*.key
+
+# ---- Model & data caches ----
+hf-cache/
+.cache/
+
+# ---- Model weights (pull from Hugging Face, don't commit) ----
+*.safetensors
+*.gguf
+*.ckpt
+*.pt
+*.pth
+*.bin
+*.onnx
+*.h5
+
+# ---- Generated artifacts ----
+# Scripts create outputs/ automatically; keep the dir but ignore generated files.
+outputs/*
+!outputs/.gitkeep
+# Generated / uploaded audio + run artifacts
+*.wav
+*.mp3
+*.flac
+*.ogg
+*.m4a
+*.webm
+*.pid
+*.log
+logs/
+*.tmp
+*.bak
+*.orig
+
+# ---- Test / UI tooling ----
+test-results/
+playwright-report/
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ---- Editors / IDEs ----
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# ---- OS: macOS ----
+.DS_Store
+.DS_Store?
+._*
+.AppleDouble
+.LSOverride
+.Spotlight-V100
+.Trashes
+
+# ---- OS: Windows ----
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# ---- OS: Linux ----
+.directory
+.Trash-*
+
+# ---- Local Claude Code settings ----
+.claude/settings.local.json
