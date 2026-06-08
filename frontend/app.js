@@ -204,6 +204,7 @@ const modes = {
   tts: document.querySelector("#mode-tts"),
   asr: document.querySelector("#mode-asr"),
   chat: document.querySelector("#mode-chat"),
+  vl: document.querySelector("#mode-vl"),
 };
 
 function selectMode(mode) {
@@ -215,6 +216,7 @@ function selectMode(mode) {
   for (const [name, element] of Object.entries(modes)) {
     element.hidden = name !== mode;
   }
+  if (mode === "vl") refreshModels();
 }
 
 tabs.forEach((tab) => tab.addEventListener("click", () => selectMode(tab.dataset.mode)));
@@ -773,8 +775,234 @@ rtcToggle.addEventListener("click", () => {
 });
 
 // ----------------------------------------------------------------------------
+// VL (image understanding) — model on/off rack + image inference
+// ----------------------------------------------------------------------------
+const modelRack = document.querySelector("#modelRack");
+const vlGpu = document.querySelector("#vlGpu");
+const vlFile = document.querySelector("#vlFile");
+const vlImageName = document.querySelector("#vlImageName");
+const vlPrompt = document.querySelector("#vlPrompt");
+const vlGrounding = document.querySelector("#vlGrounding");
+const vlTokens = document.querySelector("#vlTokens");
+const vlTokensNum = document.querySelector("#vlTokensNum");
+const vlRun = document.querySelector("#vlRun");
+const vlCanvas = document.querySelector("#vlCanvas");
+const vlText = document.querySelector("#vlText");
+const vlMeta = document.querySelector("#vlMeta");
+const vlCopy = document.querySelector("#vlCopy");
+const vlActiveHint = document.querySelector("#vlActiveHint");
+const vlFields = {
+  total: document.querySelector("#vlTotalTime"),
+  gen: document.querySelector("#vlGenTime"),
+  prompt: document.querySelector("#vlPromptTime"),
+  out: document.querySelector("#vlOutTokens"),
+  boxes: document.querySelector("#vlBoxes"),
+  runtime: document.querySelector("#vlRuntime"),
+  memory: document.querySelector("#vlMemory"),
+};
+
+let vlImage = null; // HTMLImageElement of the current upload
+let vlModels = []; // last fetched model registry
+let vlBusy = false;
+
+function gpuLabel(gpu) {
+  if (!gpu) return "cpu";
+  return `${mb(gpu.memory_used_mb)} / ${mb(gpu.memory_total_mb)} used`;
+}
+
+function activeVlKey() {
+  // The currently-loaded VL model the run button targets (first one ON).
+  const loaded = vlModels.find((m) => m.kind === "vl" && m.loaded);
+  return loaded ? loaded.key : null;
+}
+
+function renderModels(payload) {
+  vlModels = payload.models || [];
+  vlGpu.textContent = `gpu ${gpuLabel(payload.gpu)}`;
+  vlFields.memory.textContent = gpuLabel(payload.gpu);
+
+  modelRack.innerHTML = "";
+  for (const m of vlModels) {
+    const row = document.createElement("div");
+    row.className = `rack-row${m.loaded ? " is-on" : ""}`;
+
+    const info = document.createElement("div");
+    info.className = "rack-info";
+    const name = document.createElement("strong");
+    name.textContent = m.label + (m.grounding ? " · grounding" : "");
+    const note = document.createElement("span");
+    note.textContent = m.note || m.kind;
+    info.append(name, note);
+
+    const toggle = document.createElement("button");
+    toggle.className = "rack-toggle";
+    toggle.type = "button";
+    toggle.textContent = m.loaded ? "ON" : "OFF";
+    toggle.disabled = vlBusy;
+    toggle.addEventListener("click", () => toggleModel(m.key, !m.loaded));
+
+    row.append(info, toggle);
+    modelRack.appendChild(row);
+  }
+  if (!vlModels.length) {
+    modelRack.innerHTML = '<div class="rack-empty">no models</div>';
+  }
+
+  const key = activeVlKey();
+  vlRun.disabled = vlBusy || !key || !vlImage;
+  const target = vlModels.find((x) => x.key === key);
+  vlActiveHint.textContent = key
+    ? `推論対象: ${target.label}${target.grounding ? "（bbox対応）" : ""}`
+    : "推論には対象のVLモデルをONにしてください。";
+  vlGrounding.disabled = !target || !target.grounding;
+  if (vlGrounding.disabled) vlGrounding.checked = false;
+}
+
+async function refreshModels() {
+  try {
+    const response = await fetch("/api/models");
+    if (!response.ok) throw new Error("models failed");
+    renderModels(await response.json());
+  } catch {
+    modelRack.innerHTML = '<div class="rack-empty">offline</div>';
+  }
+}
+
+async function toggleModel(key, on) {
+  vlBusy = true;
+  modelRack.querySelectorAll(".rack-toggle").forEach((b) => (b.disabled = true));
+  setToast(`${on ? "loading" : "unloading"} ${key}…`);
+  try {
+    const response = await fetch(`/api/models/${on ? "load" : "unload"}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ key }),
+    });
+    const payload = await response.json();
+    if (!response.ok) throw new Error(payload.detail || "toggle failed");
+    renderModels(payload);
+    setToast(`${key} ${on ? "ON" : "OFF"}`);
+  } catch (error) {
+    setToast(error.message || "toggle failed");
+    refreshModels();
+  } finally {
+    vlBusy = false;
+  }
+}
+
+function drawVlImage(boxes = []) {
+  const ctx = vlCanvas.getContext("2d");
+  const { width, height } = vlCanvas;
+  ctx.clearRect(0, 0, width, height);
+  ctx.fillStyle = "#17120e";
+  ctx.fillRect(0, 0, width, height);
+  if (!vlImage) {
+    ctx.fillStyle = "rgba(255, 250, 240, 0.64)";
+    ctx.font = "16px monospace";
+    ctx.fillText("no image", 22, height - 24);
+    return;
+  }
+  // Fit the image into the canvas (letterbox) and remember the transform.
+  const scale = Math.min(width / vlImage.width, height / vlImage.height);
+  const drawW = vlImage.width * scale;
+  const drawH = vlImage.height * scale;
+  const offX = (width - drawW) / 2;
+  const offY = (height - drawH) / 2;
+  ctx.drawImage(vlImage, offX, offY, drawW, drawH);
+
+  ctx.lineWidth = 3;
+  ctx.font = "700 15px monospace";
+  for (const box of boxes) {
+    const [x1, y1, x2, y2] = box.bbox;
+    const rx = offX + x1 * scale;
+    const ry = offY + y1 * scale;
+    const rw = (x2 - x1) * scale;
+    const rh = (y2 - y1) * scale;
+    ctx.strokeStyle = "#d2dd2b";
+    ctx.strokeRect(rx, ry, rw, rh);
+    if (box.label) {
+      const text = box.label;
+      const tw = ctx.measureText(text).width + 10;
+      ctx.fillStyle = "#d2dd2b";
+      ctx.fillRect(rx, Math.max(0, ry - 20), tw, 20);
+      ctx.fillStyle = "#15120f";
+      ctx.fillText(text, rx + 5, Math.max(13, ry - 6));
+    }
+  }
+}
+
+vlFile.addEventListener("change", () => {
+  const file = vlFile.files?.[0];
+  if (!file) return;
+  const img = new Image();
+  img.onload = () => {
+    vlImage = img;
+    vlImageName.textContent = `${file.name} · ${img.width}×${img.height}`;
+    drawVlImage();
+    vlRun.disabled = vlBusy || !activeVlKey();
+  };
+  img.onerror = () => setToast("could not load that image");
+  img.src = URL.createObjectURL(file);
+});
+
+vlRun.addEventListener("click", async () => {
+  const key = activeVlKey();
+  if (!key) return setToast("VLモデルをONにしてください");
+  if (!vlFile.files?.[0]) return setToast("画像を選択してください");
+
+  vlBusy = true;
+  vlRun.disabled = true;
+  vlRun.querySelector("span:last-child").textContent = "推論中";
+  vlText.textContent = "…";
+  try {
+    const fd = new FormData();
+    fd.append("file", vlFile.files[0]);
+    fd.append("key", key);
+    fd.append("prompt", vlPrompt.value);
+    fd.append("max_new_tokens", String(vlTokensNum.value));
+    fd.append("grounding", String(vlGrounding.checked));
+    const response = await fetch("/api/vl/infer", { method: "POST", body: fd });
+    const payload = await response.json();
+    if (!response.ok) throw new Error(payload.detail || "inference failed");
+
+    vlText.textContent = payload.text || "(empty)";
+    vlCopy.setAttribute("aria-disabled", "false");
+    drawVlImage(payload.boxes || []);
+    vlFields.total.textContent = seconds(payload.timings.total_seconds);
+    vlFields.gen.textContent = seconds(payload.timings.generation_seconds);
+    vlFields.prompt.textContent = seconds(payload.timings.prompt_seconds);
+    vlFields.out.textContent = String(payload.output_tokens);
+    vlFields.boxes.textContent = String((payload.boxes || []).length);
+    vlFields.runtime.textContent = `${payload.runtime.device} / ${payload.runtime.dtype}`;
+    vlFields.memory.textContent = gpuLabel(payload.gpu);
+    if (payload.gpu) vlGpu.textContent = `gpu ${gpuLabel(payload.gpu)}`;
+    vlMeta.textContent = `${payload.output_tokens} tok · in ${payload.input_tokens} tok · ${payload.image_size[0]}×${payload.image_size[1]}`;
+  } catch (error) {
+    vlText.textContent = "推論に失敗しました。";
+    setToast(error.message || "inference failed");
+  } finally {
+    vlBusy = false;
+    vlRun.disabled = !activeVlKey() || !vlImage;
+    vlRun.querySelector("span:last-child").textContent = "推論";
+  }
+});
+
+vlCopy.addEventListener("click", async () => {
+  if (vlCopy.getAttribute("aria-disabled") === "true") return;
+  try {
+    await navigator.clipboard.writeText(vlText.textContent);
+    setToast("copied");
+  } catch {
+    setToast("copy failed");
+  }
+});
+
+syncPair(vlTokens, vlTokensNum);
+
+// ----------------------------------------------------------------------------
 // Init
 // ----------------------------------------------------------------------------
 textInput.dispatchEvent(new Event("input"));
 drawIdleWave("waiting for audio");
+drawVlImage();
 loadStatus();

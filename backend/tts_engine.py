@@ -120,6 +120,26 @@ class TTSEngine:
     def is_loaded(self) -> bool:
         return self.processor is not None and self.model is not None
 
+    def load(self) -> float:
+        """Eagerly load the audio model (used by the model on/off rack)."""
+        with self._lock:
+            return self._ensure_loaded()
+
+    def unload(self) -> bool:
+        """Free the audio model from VRAM (used to make room for VL models)."""
+        with self._lock:
+            if not self.is_loaded:
+                return False
+            self.processor = None
+            self.model = None
+            self.loaded_at = None
+            import gc
+
+            gc.collect()
+            if self.device.type == "cuda":
+                torch.cuda.empty_cache()
+            return True
+
     def status(self) -> dict[str, Any]:
         return {
             "model_id": MODEL_ID,

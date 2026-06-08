@@ -536,6 +536,92 @@ audio {
   margin: 0;
 }
 
+/* ---- VL: model rack (on/off) + image inference ---- */
+.model-rack {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.rack-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 2px solid var(--ink);
+  background: #fffdf6;
+}
+
+.rack-row.is-on {
+  background: var(--acid);
+  box-shadow: 4px 4px 0 var(--ink);
+}
+
+.rack-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  overflow: hidden;
+}
+
+.rack-info strong {
+  font-size: 14px;
+  font-weight: 900;
+}
+
+.rack-info span {
+  color: var(--muted);
+  font-size: 11px;
+  text-transform: uppercase;
+  overflow-wrap: anywhere;
+}
+
+.rack-toggle {
+  width: 64px;
+  height: 36px;
+  flex: none;
+  box-shadow: 3px 3px 0 var(--copper);
+}
+
+.rack-row.is-on .rack-toggle {
+  background: var(--signal);
+  box-shadow: 3px 3px 0 var(--ink);
+}
+
+.rack-empty {
+  padding: 14px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.vl-image-head {
+  margin-top: 18px;
+}
+
+.vl-prompt {
+  min-height: 120px;
+  font-size: 16px;
+}
+
+.vl-ground {
+  text-transform: none;
+  font-size: 12px;
+  font-weight: 900;
+  color: var(--muted);
+}
+
+.vl-text {
+  min-height: 120px;
+  margin-top: 16px;
+  font-size: 17px;
+}
+
+#vlCanvas {
+  height: 420px;
+}
+
 .toast {
   position: fixed;
   right: 18px;

@@ -34,9 +34,16 @@ server = [
 realtime = [
     "fastrtc[vad]>=0.0.34",
 ]
-# Everything: text + audio + web server + realtime.
+# Vision-language demo (LFM2.5-VL image understanding). transformers/accelerate
+# already come from the core deps; this adds image decoding (pillow) and the
+# torchvision backend the Lfm2Vl image processor requires.
+vision = [
+    "pillow>=11.0.0",
+    "torchvision==0.27.0",
+]
+# Everything: text + audio + web server + realtime + vision.
 all = [
-    "slm-playground[audio,server,realtime]",
+    "slm-playground[audio,server,realtime,vision]",
 ]
 
 # Dev-only tooling (installed by `uv sync`, not shipped). PEP 735 group.
@@ -63,6 +70,7 @@ packages = ["backend"]
 [tool.uv.sources]
 torch = { index = "pytorch-cu126" }
 torchaudio = { index = "pytorch-cu126" }
+torchvision = { index = "pytorch-cu126" }
 
 [[tool.uv.index]]
 name = "pytorch-cu126"

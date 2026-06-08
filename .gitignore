@@ -41,6 +41,11 @@ env/
 hf-cache/
 .cache/
 
+# ---- llama.cpp acceleration (built locally; see docs/acceleration.md) ----
+.llamacpp/
+.cudatk/
+gguf/
+
 # ---- Model weights (pull from Hugging Face, don't commit) ----
 *.safetensors
 *.gguf

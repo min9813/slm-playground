@@ -10,8 +10,9 @@ The demos here are built on `LiquidAI/LFM2.5-Audio-1.5B-JP`
 - `run_text.py`: `LiquidAI/LFM2.5-1.2B-JP-202606` text generation
 - `run_audio_tts.py`: Japanese **TTS** (text → speech)
 - `run_asr.py`: Japanese **ASR** (speech → text)
-- `backend/` + `frontend/`: browser UI with three modes — 音声合成 (TTS),
-  音声認識 (ASR), and 音声対話 (speech-to-speech chat)
+- `backend/` + `frontend/`: browser UI with four modes — 音声合成 (TTS),
+  音声認識 (ASR), 音声対話 (speech-to-speech chat), and 画像理解 (**VL**
+  image understanding via `LiquidAI/LFM2.5-VL-1.6B` / `LFM2.5-VL-450M`)
 
 ## Environment (uv)
 
@@ -58,6 +59,7 @@ request. The UI has three tabs:
 | 音声合成 (TTS) | `POST /api/tts` (JSON) | Japanese text → speech |
 | 音声認識 (ASR) | `POST /api/asr` (multipart audio) | record/upload audio → transcript |
 | 音声対話 (Chat) | `POST /api/chat` (multipart audio) | speak → spoken + text reply |
+| 画像理解 (VL) | `POST /api/vl/infer` (multipart image) | image + prompt → text (+ bbox) |
 
 The browser records mic audio and encodes it to mono 16-bit PCM WAV client-side,
 so the server needs no `ffmpeg`. Generated WAVs are written to `outputs/` and
@@ -80,6 +82,46 @@ hidden otherwise. Uses the same single model instance as the other endpoints.
 > context** — open the UI via `https://` or `http://localhost` (e.g. an SSH
 > tunnel). A plain `http://<remote-ip>` origin will have the mic blocked by the
 > browser.
+
+### 画像理解 (Vision-Language)
+
+The 画像理解 (VL) tab runs Liquid AI's LFM2.5-VL image models:
+
+| Model | Notes |
+| --- | --- |
+| `LiquidAI/LFM2.5-VL-1.6B` | general VL · OCR · document QA |
+| `LiquidAI/LFM2.5-VL-450M` | tiny; adds **visual grounding** (bounding-box prediction) |
+
+Upload an image, type a prompt, and press 推論. Tick **グラウンディング (bbox)**
+on the 450M to ask for object boxes — the reply's JSON boxes are parsed
+best-effort and drawn on the image canvas (RefCOCO-M ≈ 81 on the 450M).
+
+**GPU on/off toggles.** The card here (GTX 1080 Ti, 11 GB) cannot hold the
+audio model and the VL models at the same time, so the VL tab has a **モデル管理**
+rack: each model (audio, VL-1.6B, VL-450M) has an ON/OFF switch backed by
+`POST /api/models/load` / `/unload`. Turn the audio model OFF to free VRAM
+before switching a VL model ON. Live GPU memory is shown in the rack header and
+the metrics panel. Unlike the audio model (lazy-loaded on first request), VL
+models load only when you flip them ON. Install the extra with
+`uv sync --extra all` (or `--extra vision` for just image decoding).
+
+## Acceleration (llama.cpp / GGUF, INT8)
+
+On the local GTX 1080 Ti (Pascal, SM 6.1), INT8 GGUF via a locally-built
+llama.cpp gives **3.0–6.3× faster generation** and **2–7× less VRAM** than
+transformers fp32, for text, VL, and audio-ASR (TTS/S2S audio-output stays on
+`liquid-audio`). Build with `bash scripts/build_llamacpp_cuda.sh` (no system
+CUDA / no sudo needed), then `source scripts/llamacpp_env.sh`. Full method,
+per-model benchmark numbers, and what was ruled out on Pascal (TensorRT, vLLM,
+AWQ/Marlin, ONNX-CUDA INT8, …) are in [docs/acceleration.md](docs/acceleration.md).
+
+## Model Survey / Benchmarks
+
+Small VLM, on-device multimodal, WebGPU, and realtime audio candidates are
+tracked in [docs/model_survey.md](docs/model_survey.md). Use
+`uv run python scripts/hf_model_inventory.py` to refresh Hugging Face metadata,
+and `uv run python scripts/bench_vlm_transformers.py --model <model-id>` for a
+first-pass local VLM latency/VRAM test.
 
 ## Frontend Design Skill
 

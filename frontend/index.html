@@ -3,14 +3,14 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Liquid JP Voice Bench</title>
+    <title>SLM Playground</title>
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
     <header class="topbar">
       <div>
-        <p class="kicker">Liquid AI · LFM2.5-Audio</p>
-        <h1>JP Voice Bench</h1>
+        <p class="kicker">Liquid AI · LFM2.5</p>
+        <h1>SLM Playground</h1>
       </div>
       <div class="status" id="runtimeStatus">initializing</div>
     </header>
@@ -24,6 +24,9 @@
       </button>
       <button class="tab" type="button" data-mode="chat" role="tab" aria-selected="false">
         音声対話 · Chat
+      </button>
+      <button class="tab" type="button" data-mode="vl" role="tab" aria-selected="false">
+        画像理解 · VL
       </button>
     </nav>
 
@@ -203,6 +206,95 @@
         </div>
         <div class="chat-log" id="chatLog">
           <div class="chat-empty">まだ会話はありません。「話しかける」で開始します。</div>
+        </div>
+      </section>
+    </main>
+
+    <!-- ============================ VL ============================ -->
+    <main class="workspace mode" id="mode-vl" hidden>
+      <section class="compose-panel" aria-label="VL input">
+        <!-- Model rack: turn each model on/off to manage GPU memory -->
+        <div class="field-head">
+          <label>モデル管理</label>
+          <span id="vlGpu">gpu --</span>
+        </div>
+        <div class="model-rack" id="modelRack">
+          <div class="rack-empty">loading models…</div>
+        </div>
+        <p class="hint subtle">※ GTX 1080 Ti はVRAMが限られるため、大きいモデルは1つだけON推奨。使わないモデルはOFFに。</p>
+
+        <div class="field-head vl-image-head">
+          <label>入力画像</label>
+          <span id="vlImageName">no image</span>
+        </div>
+        <div class="recorder">
+          <label class="file-pick">
+            <span>画像を選択</span>
+            <input id="vlFile" type="file" accept="image/*" hidden />
+          </label>
+        </div>
+
+        <div class="field-head">
+          <label for="vlPrompt">プロンプト</label>
+          <label class="vad-toggle vl-ground">
+            <input id="vlGrounding" type="checkbox" />
+            <span>グラウンディング（bbox）</span>
+          </label>
+        </div>
+        <textarea id="vlPrompt" class="vl-prompt" spellcheck="false" placeholder="例: この画像に何が写っていますか？ / Read all text.">この画像に何が写っていますか？日本語で説明してください。</textarea>
+
+        <div class="control-strip">
+          <label class="token-control" for="vlTokens">
+            <span>max tokens</span>
+            <input id="vlTokens" type="range" min="32" max="1024" step="32" value="256" />
+          </label>
+          <input id="vlTokensNum" class="token-number" type="number" min="32" max="1024" step="32" value="256" />
+          <button id="vlRun" type="button" disabled>
+            <span class="button-mark">▶</span>
+            <span>推論</span>
+          </button>
+        </div>
+        <p class="hint" id="vlActiveHint">推論には対象モデルをONにしてください。</p>
+      </section>
+
+      <section class="output-panel" aria-label="VL output">
+        <div class="plate-head">
+          <span>output</span>
+          <button id="vlCopy" class="download-link" type="button" aria-disabled="true">copy</button>
+        </div>
+        <canvas id="vlCanvas" width="1040" height="420" aria-label="image with detections"></canvas>
+        <div class="transcript vl-text" id="vlText" aria-live="polite">画像とプロンプトを入力して「推論」を押してください。</div>
+        <div class="filename" id="vlMeta">no result</div>
+      </section>
+
+      <section class="metrics-panel" aria-label="VL metrics">
+        <div class="meter primary">
+          <span>total</span>
+          <strong id="vlTotalTime">0.00s</strong>
+        </div>
+        <div class="meter">
+          <span>generation</span>
+          <strong id="vlGenTime">0.00s</strong>
+        </div>
+        <div class="meter">
+          <span>prompt</span>
+          <strong id="vlPromptTime">0.00s</strong>
+        </div>
+        <div class="meter">
+          <span>out tokens</span>
+          <strong id="vlOutTokens">0</strong>
+        </div>
+        <div class="meter">
+          <span>boxes</span>
+          <strong id="vlBoxes">0</strong>
+        </div>
+        <div class="meter wide">
+          <span>runtime</span>
+          <strong id="vlRuntime">cuda / float32</strong>
+        </div>
+        <div class="meter wide">
+          <span>gpu memory</span>
+          <strong id="vlMemory">--</strong>
         </div>
       </section>
     </main>
