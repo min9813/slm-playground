@@ -123,14 +123,3 @@ tracked in [docs/model_survey.md](docs/model_survey.md). Use
 and `uv run python scripts/bench_vlm_transformers.py --model <model-id>` for a
 first-pass local VLM latency/VRAM test.
 
-## Frontend Design Skill
-
-The external `frontend-design` skill from Anthropic Claude Code was installed for both environments:
-
-- Codex: `/home/min9813/.codex/skills/frontend-design`
-- Hermes: `/home/min9813/.hermes/skills/creative/frontend-design`
-
-Restart Codex/Hermes sessions to have the new skill discovered automatically.
-
-On this GTX 1080 Ti, `--dtype auto` resolves to `float32` because Pascal GPUs do
-not have fast native `float16` or `bfloat16` tensor-core inference.
